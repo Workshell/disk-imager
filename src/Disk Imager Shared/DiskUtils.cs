@@ -80,6 +80,40 @@ namespace Workshell.DiskImager
             }
         }
 
+        public static long GetPhysicalDiskSectorCount(int diskNumber)
+        {
+            var drivePath = $"\\\\.\\PhysicalDrive{diskNumber}";
+            var driveHandle = NativeInterop.CreateFile(drivePath, 0, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+
+            if (driveHandle.IsInvalid)
+            {
+                return -1;
+            }
+
+            try
+            {
+                var geometry = new NativeInterop.DISK_GEOMETRY();
+                var geometrySize = 0U;
+                var success = NativeInterop.DeviceIoControl(driveHandle, NativeInterop.IOCTL_DISK_GET_DRIVE_GEOMETRY, IntPtr.Zero, 0, ref geometry, (uint)Marshal.SizeOf(geometry), out geometrySize, IntPtr.Zero);
+
+                if (!success)
+                {
+                    return -1;
+                }
+
+                var result = geometry.SectorsPerTrack * geometry.TracksPerCylinder * geometry.Cylinders;
+
+                return result;
+            }
+            finally
+            {
+                if (!driveHandle.IsClosed)
+                {
+                    driveHandle.Close();
+                }
+            }
+        }
+
         public static int[] GetPhysicalDiskNumbersFromDrive(string drive)
         {
             if (string.IsNullOrWhiteSpace(drive))

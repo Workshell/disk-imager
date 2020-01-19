@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Workshell.DiskImager
@@ -11,7 +12,7 @@ namespace Workshell.DiskImager
     {
         private readonly DiskInfo _diskInfo;
         private readonly Stream _stream;
-        private volatile bool _disposed;
+        private int _disposed;
         private long _readSize;
 
         public DiskReader(DiskInfo diskInfo)
@@ -25,8 +26,8 @@ namespace Workshell.DiskImager
             }
 
             _diskInfo = diskInfo;
-            _stream = new FileStream(diskHandle, FileAccess.Read, ushort.MaxValue + 1, false);
-            _disposed = false;
+            _stream = new FileStream(diskHandle, FileAccess.Read, /*ushort.MaxValue + 1*/ 1024 * 64, false);
+            _disposed = 0;
             _readSize = 0;
         }
 
@@ -34,14 +35,12 @@ namespace Workshell.DiskImager
 
         public void Dispose()
         {
-            if (_disposed)
+            if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 1)
             {
                 return;
             }
 
             Close();
-
-            _disposed = true;
         }
 
         public void Close()

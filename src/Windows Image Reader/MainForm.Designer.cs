@@ -54,7 +54,6 @@
             this.btnExit = new System.Windows.Forms.Button();
             this.timer = new System.Windows.Forms.Timer(this.components);
             this.saveDlg = new System.Windows.Forms.SaveFileDialog();
-            this.backgroundWorker = new System.ComponentModel.BackgroundWorker();
             this.processTimer = new System.Windows.Forms.Timer(this.components);
             this.gbxDisk.SuspendLayout();
             this.gbxImage.SuspendLayout();
@@ -308,13 +307,6 @@
             // 
             this.timer.Tick += new System.EventHandler(this.timer_Tick);
             // 
-            // backgroundWorker
-            // 
-            this.backgroundWorker.WorkerReportsProgress = true;
-            this.backgroundWorker.WorkerSupportsCancellation = true;
-            this.backgroundWorker.DoWork += new System.ComponentModel.DoWorkEventHandler(this.backgroundWorker_DoWork);
-            this.backgroundWorker.ProgressChanged += new System.ComponentModel.ProgressChangedEventHandler(this.backgroundWorker_ProgressChanged);
-            // 
             // processTimer
             // 
             this.processTimer.Interval = 1000;
@@ -370,7 +362,6 @@
         private System.Windows.Forms.Button btnExit;
         private System.Windows.Forms.Timer timer;
         private System.Windows.Forms.SaveFileDialog saveDlg;
-        private System.ComponentModel.BackgroundWorker backgroundWorker;
         private System.Windows.Forms.Timer processTimer;
         private System.Windows.Forms.Label lblTimeTakenValue;
         private System.Windows.Forms.Label lblPercentCompleteValue;

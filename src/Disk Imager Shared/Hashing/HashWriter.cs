@@ -23,6 +23,7 @@ namespace Workshell.DiskImager.Hashing
         #region Properties
 
         public string ImageFilename { get; }
+        public abstract string HashFilename { get; }
 
         #endregion
     }

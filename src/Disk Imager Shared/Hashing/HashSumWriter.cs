@@ -24,7 +24,7 @@ namespace Workshell.DiskImager.Hashing
             {
                 using (var imageFile = new FileStream(ImageFilename, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    var buffer = new byte[ushort.MaxValue + 1];
+                    var buffer = new byte[1024 * 64];
                     var totalRead = 0L;
                     var numRead = imageFile.Read(buffer, 0, buffer.Length);
 
@@ -53,8 +53,7 @@ namespace Workshell.DiskImager.Hashing
                 hash = Utils.BytesToString(algorithm.Hash);
             }
 
-            var fileName = $"{ImageFilename}.{GetExtension()}";
-            var file = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
+            var file = new FileStream(HashFilename, FileMode.Create, FileAccess.Write, FileShare.None);
 
             using (var writer = new StreamWriter(file, Encoding.UTF8))
             {
@@ -65,6 +64,12 @@ namespace Workshell.DiskImager.Hashing
 
         protected abstract HashAlgorithm GetAlgorithm();
         protected abstract string GetExtension();
+
+        #endregion
+
+        #region Properties
+
+        public override string HashFilename => $"{ImageFilename}.{GetExtension()}";
 
         #endregion
     }

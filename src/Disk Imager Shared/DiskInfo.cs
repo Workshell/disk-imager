@@ -61,6 +61,7 @@ namespace Workshell.DiskImager
             {
                 kvp.Value.Size = DiskUtils.GetPhysicalDiskSize(kvp.Key);
                 kvp.Value.SectorSize = DiskUtils.GetPhysicalDiskSectorSize(kvp.Key);
+                kvp.Value.SectorCount = DiskUtils.GetPhysicalDiskSectorCount(kvp.Key);
             }
 
             var results = diskInformation.Values.OrderBy(_ => _.DiskNumber)
@@ -94,6 +95,7 @@ namespace Workshell.DiskImager
         public int DiskNumber { get; private set; }
         public long Size { get; private set; }
         public int SectorSize { get; private set; }
+        public long SectorCount { get; private set; }
         public DriveInfo[] Drives { get; private set; }
 
         #endregion

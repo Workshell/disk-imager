@@ -1,17 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+
 using ICSharpCode.SharpZipLib.BZip2;
 using ICSharpCode.SharpZipLib.GZip;
+
 using Workshell.DiskImager.Hashing;
 
 namespace Workshell.DiskImager
@@ -21,6 +20,7 @@ namespace Workshell.DiskImager
         private readonly object _locker;
         private readonly DiskInfo[] _disks;
 
+        private CancellationTokenSource _cts;
         private DiskInfo _selectedDisk;
         private string _imageFilename;
         private string _hash;
@@ -37,6 +37,7 @@ namespace Workshell.DiskImager
             _locker = new object();
             _disks = DiskInfo.GetDisks();
 
+            _cts = null;
             _selectedDisk = null;
             _imageFilename = string.Empty;
             _hash = string.Empty;
@@ -99,55 +100,204 @@ namespace Workshell.DiskImager
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (e.CloseReason == CloseReason.UserClosing && backgroundWorker.IsBusy)
+            if (e.CloseReason == CloseReason.UserClosing && _cts != null)
             {
-                backgroundWorker.CancelAsync();
-
-                while (backgroundWorker.IsBusy)
+                if (MessageBox.Show("Operation is in progress, do you wish to cancel it?", "Confirm Exit", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.No)
                 {
-                    Application.DoEvents();
+                    e.Cancel = true;
+
+                    return;
                 }
+
+                _cts.Cancel();
             }
         }
 
-        private void btnCreate_Click(object sender, EventArgs e)
+        private async void btnCreate_Click(object sender, EventArgs e)
         {
-            if (!backgroundWorker.IsBusy && !backgroundWorker.CancellationPending)
-            {
-                _selectedDisk = (DiskInfo)ddlDevice.SelectedItem;
-                _imageFilename = txtFilename.Text;
-                _hash = ddlHash.SelectedItem.ToString();
-                _compression = ddlCompression.SelectedItem.ToString();
+            timer.Stop();
+            processTimer.Start();
 
-                backgroundWorker.RunWorkerAsync();
+            gbxDisk.Enabled = false;
+            gbxImage.Enabled = false;
+            gbxOptions.Enabled = false;
+            gbxProgress.Enabled = true;
+
+            btnCreate.Enabled = false;
+            btnCancel.Enabled = true;
+
+            _cts = new CancellationTokenSource();
+            _selectedDisk = (DiskInfo)ddlDevice.SelectedItem;
+            _imageFilename = txtFilename.Text;
+            _hash = ddlHash.SelectedItem.ToString();
+            _compression = ddlCompression.SelectedItem.ToString();
+
+            var hashFilename = string.Empty;
+
+            Interlocked.Exchange(ref _started, DateTime.UtcNow.Ticks);
+            Interlocked.Exchange(ref _total, _selectedDisk.Size);
+            Interlocked.Exchange(ref _totalRead, 0);
+            Interlocked.Exchange(ref _readRate, 0);
+
+            try
+            {
+                lblStatus.Text = "Creating disk image...";
+                progressBar.Value = 0;
+
+                await Task.Run(() =>
+                {
+                    using (var file = new FileStream(_imageFilename, FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        using (var writer = GetCompressionStream(file))
+                        {
+                            using (var reader = new DiskReader(_selectedDisk))
+                            {
+                                var buffer = new byte[_selectedDisk.SectorSize];
+
+                                for (var i = 0; i < _selectedDisk.SectorCount; i++)
+                                {
+                                    if (_cts.Token.IsCancellationRequested)
+                                    {
+                                        break;
+                                    }
+
+                                    if (!reader.ReadSector(buffer, 0))
+                                    {
+                                        break;
+                                    }
+
+                                    Interlocked.Add(ref _totalRead, buffer.Length);
+                                    Interlocked.Add(ref _readRate, buffer.Length);
+
+                                    writer.Write(buffer, 0, buffer.Length);
+                                }
+                            }
+
+                            writer.Flush();
+                        }
+                    }
+                });
+
+                if (_cts.Token.IsCancellationRequested)
+                {
+                    if (File.Exists(_imageFilename))
+                    {
+                        File.Delete(_imageFilename);
+                    }
+
+                    return;
+                }
+
+                await Task.Delay(1000); // Lets the progress get to 100%
+
+                if (!string.IsNullOrWhiteSpace(_hash))
+                {
+                    lblStatus.Text = "Creating hash file...";
+                    progressBar.Value = 0;
+
+                    await Task.Run(() =>
+                    {
+                        HashWriter hashWriter = null;
+
+                        if (string.Compare("md5", _hash, StringComparison.OrdinalIgnoreCase) == 0)
+                        {
+                            hashWriter = new MD5HashWriter(_imageFilename);
+                        }
+                        else if (string.Compare("sha1", _hash, StringComparison.OrdinalIgnoreCase) == 0)
+                        {
+                            hashWriter = new SHA1HashWriter(_imageFilename);
+                        }
+                        else if (string.Compare("sha256", _hash, StringComparison.OrdinalIgnoreCase) == 0)
+                        {
+                            hashWriter = new SHA256HashWriter(_imageFilename);
+                        }
+                        else if (string.Compare("sha512", _hash, StringComparison.OrdinalIgnoreCase) == 0)
+                        {
+                            hashWriter = new SHA512HashWriter(_imageFilename);
+                        }
+
+                        if (hashWriter != null)
+                        {
+                            Func<long, long, int, bool> generateCallback = (total, totalRead, numRead) =>
+                            {
+                                Interlocked.Exchange(ref _total, total);
+                                Interlocked.Exchange(ref _totalRead, totalRead);
+                                Interlocked.Add(ref _readRate, numRead);
+
+                                return !_cts.Token.IsCancellationRequested;
+                            };
+                            hashFilename = hashWriter.HashFilename;
+
+                            hashWriter.Generate(generateCallback);
+                        }
+                    });
+
+                    if (_cts.Token.IsCancellationRequested)
+                    {
+                        if (File.Exists(_imageFilename))
+                        {
+                            File.Delete(_imageFilename);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(hashFilename) && File.Exists(hashFilename))
+                        {
+                            File.Delete(hashFilename);
+                        }
+
+                        return;
+                    }
+
+                    await Task.Delay(1000); // Lets the progress get to 100%
+                }
+            }
+            catch (Exception ex)
+            {
+                if (File.Exists(_imageFilename))
+                {
+                    File.Delete(_imageFilename);
+                }
+
+                if (!string.IsNullOrWhiteSpace(hashFilename) && File.Exists(hashFilename))
+                {
+                    File.Delete(hashFilename);
+                }
+
+                MessageBox.Show($"Exception:\r\n\r\n{ex}", "Disk Image Reader Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                #if DEBUG
+                throw; // When debugging re-throw for the debugger
+                #endif
+            }
+            finally
+            {
+                _cts.Dispose();
+
+                _cts = null;
+
+                gbxDisk.Enabled = true;
+                gbxImage.Enabled = true;
+                gbxOptions.Enabled = true;
+
+                lblTimeTakenValue.Text = string.Empty;
+                lblPercentCompleteValue.Text = string.Empty;
+                lblReadSpeedValue.Text = string.Empty;
+                lblStatus.Text = string.Empty;
+                progressBar.Value = 0;
+                gbxProgress.Enabled = false;
+
+                processTimer.Stop();
+                timer.Start();
             }
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
-            if (backgroundWorker.IsBusy && !backgroundWorker.CancellationPending)
-            {
-                backgroundWorker.CancelAsync();
-            }
+            _cts?.Cancel();
         }
 
         private void btnExit_Click(object sender, EventArgs e)
         {
             Close();
-        }
-
-        private void timer_Tick(object sender, EventArgs e)
-        {
-            if (ddlDevice.SelectedIndex < 0 || string.IsNullOrWhiteSpace(txtFilename.Text))
-            {
-                btnCreate.Enabled = false;
-                btnCancel.Enabled = false;
-            }
-            else
-            {
-                btnCreate.Enabled = true;
-                btnCancel.Enabled = false;
-            }
         }
 
         private void btnBrowseImage_Click(object sender, EventArgs e)
@@ -176,218 +326,51 @@ namespace Workshell.DiskImager
 
         private void ddlCompression_SelectedIndexChanged(object sender, EventArgs e)
         {
+            var fileName = txtFilename.Text;
             var compression = ddlCompression.SelectedItem.ToString();
-            var ext = Path.GetExtension(txtFilename.Text);
 
             if (string.Compare("gzip", compression, StringComparison.OrdinalIgnoreCase) == 0)
             {
-                if (string.Compare(".gz", ext, StringComparison.OrdinalIgnoreCase) != 0)
+                if (fileName.EndsWith(".bz2"))
                 {
-                    txtFilename.Text = $"{txtFilename.Text}.gz";
+                    txtFilename.Text = Path.ChangeExtension(fileName, ".gz");
+                }
+                else if (!fileName.EndsWith(".gz"))
+                {
+                    txtFilename.Text = $"{fileName}.gz";
                 }
             }
-            if (string.Compare("bzip2", compression, StringComparison.OrdinalIgnoreCase) == 0)
+            else if (string.Compare("bzip2", compression, StringComparison.OrdinalIgnoreCase) == 0)
             {
-                if (string.Compare(".bz2", ext, StringComparison.OrdinalIgnoreCase) != 0)
+                if (fileName.EndsWith(".gz"))
                 {
-                    txtFilename.Text = $"{txtFilename.Text}.bz2";
+                    txtFilename.Text = Path.ChangeExtension(fileName, ".bz2");
+                }
+                else if (!fileName.EndsWith(".bz2"))
+                {
+                    txtFilename.Text = $"{fileName}.bz2";
                 }
             }
             else
             {
-                if (string.Compare(".gz", ext, StringComparison.OrdinalIgnoreCase) == 0 || string.Compare(".bz2", ext, StringComparison.OrdinalIgnoreCase) == 0)
+                if (fileName.EndsWith(".gz") || fileName.EndsWith(".bz2"))
                 {
-                    txtFilename.Text = Path.ChangeExtension(txtFilename.Text, null);
+                    txtFilename.Text = Path.ChangeExtension(fileName, null);
                 }
             }
         }
 
-        private void backgroundWorker_DoWork(object sender, DoWorkEventArgs e)
+        private void timer_Tick(object sender, EventArgs e)
         {
-            backgroundWorker.ReportProgress(1);
-
-            try
+            if (ddlDevice.SelectedIndex < 0 || string.IsNullOrWhiteSpace(txtFilename.Text))
             {
-                lock (_locker)
-                {
-                    _started = DateTime.UtcNow.Ticks;
-                    _total = _selectedDisk.Size;
-                    _totalRead = 0;
-                    _readRate = 0;
-                }
-
-                /*
-                Interlocked.Exchange(ref _started, DateTime.UtcNow.Ticks);
-                Interlocked.Exchange(ref _total, _selectedDisk.Size);
-                Interlocked.Exchange(ref _totalRead, 0);
-                Interlocked.Exchange(ref _readRate, 0);
-                */
-
-                using (var file = new FileStream(_imageFilename, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    using (var writer = GetCompressionStream(file))
-                    {
-                        using (var reader = new DiskReader(_selectedDisk))
-                        {
-                            var buffer = new byte[_selectedDisk.SectorSize];
-
-                            while (true)
-                            {
-                                if (backgroundWorker.CancellationPending)
-                                {
-                                    break;
-                                }
-
-                                if (!reader.ReadSector(buffer, 0))
-                                {
-                                    break;
-                                }
-
-                                writer.Write(buffer, 0, buffer.Length);
-
-                                lock (_locker)
-                                {
-                                    _totalRead += buffer.Length;
-                                    _readRate += buffer.Length;
-                                }
-
-                                /*
-                                Interlocked.Add(ref _totalRead, buffer.Length);
-                                Interlocked.Add(ref _readRate, buffer.Length);
-                                */
-                            }
-                        }
-
-                        writer.Flush();
-                    }
-
-                    //file.Flush();
-
-                    if (!backgroundWorker.CancellationPending)
-                    {
-                        Thread.Sleep(1000); // Lets the progress get to 100%
-                    }
-                }
-
-                if (backgroundWorker.CancellationPending && File.Exists(_imageFilename))
-                {
-                    File.Delete(_imageFilename);
-                }
-
-                if (!backgroundWorker.CancellationPending && !string.IsNullOrWhiteSpace(_hash))
-                {
-                    backgroundWorker.ReportProgress(2);
-
-                    HashWriter hashWriter = null;
-
-                    if (string.Compare("md5", _hash, StringComparison.OrdinalIgnoreCase) == 0)
-                    {
-                        hashWriter = new MD5HashWriter(_imageFilename);
-                    }
-                    else if (string.Compare("sha1", _hash, StringComparison.OrdinalIgnoreCase) == 0)
-                    {
-                        hashWriter = new SHA1HashWriter(_imageFilename);
-                    }
-                    else if (string.Compare("sha256", _hash, StringComparison.OrdinalIgnoreCase) == 0)
-                    {
-                        hashWriter = new SHA256HashWriter(_imageFilename);
-                    }
-                    else if (string.Compare("sha512", _hash, StringComparison.OrdinalIgnoreCase) == 0)
-                    {
-                        hashWriter = new SHA512HashWriter(_imageFilename);
-                    }
-
-                    Func<long, long, int, bool> generateCallback = (total, totalRead, numRead) =>
-                    {
-                        lock (_locker)
-                        {
-                            _total = total;
-                            _totalRead = totalRead;
-                            _readRate += numRead;
-                        }
-
-                        /*
-                        Interlocked.Exchange(ref _total, total);
-                        Interlocked.Exchange(ref _totalRead, totalRead);
-                        Interlocked.Add(ref _readRate, numRead);
-                        */
-
-                        return !backgroundWorker.CancellationPending;
-                    };
-
-                    hashWriter?.Generate(generateCallback);
-
-                    if (!backgroundWorker.CancellationPending)
-                    {
-                        Thread.Sleep(1000); // Lets the progress get to 100%
-                    }
-                }
+                btnCreate.Enabled = false;
+                btnCancel.Enabled = false;
             }
-            catch (Exception ex)
+            else
             {
-                backgroundWorker.ReportProgress(99, ex);
-            }
-            finally
-            {
-                backgroundWorker.ReportProgress(100);
-            }
-        }
-
-        private void backgroundWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
-        {
-            switch (e.ProgressPercentage)
-            {
-                case 1: // Start of processing
-                {
-                    timer.Stop();
-                    processTimer.Start();
-
-                    gbxDisk.Enabled = false;
-                    gbxImage.Enabled = false;
-                    gbxOptions.Enabled = false;
-                    gbxProgress.Enabled = true;
-
-                    btnCreate.Enabled = false;
-                    btnCancel.Enabled = true;
-
-                    lblStatus.Text = "Creating disk image...";
-                    progressBar.Value = 0;
-
-                    break;
-                }
-                case 2:
-                {
-                    lblStatus.Text = "Creating hash file...";
-                    progressBar.Value = 0;
-
-                    break;
-                }
-                case 99: // Exception
-                {
-                    var ex = (Exception)e.UserState;
-
-                    MessageBox.Show($"Exception:\r\n\r\n{ex}", "Disk Image Reader Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-                    break;
-                }
-                case 100: // End of processing
-                {
-                    gbxDisk.Enabled = true;
-                    gbxImage.Enabled = true;
-                    gbxOptions.Enabled = true;
-
-                    lblTimeTakenValue.Text = string.Empty;
-                    lblPercentCompleteValue.Text = string.Empty;
-                    lblReadSpeedValue.Text = string.Empty;
-                    lblStatus.Text = string.Empty;
-                    progressBar.Value = 0;
-                    gbxProgress.Enabled = false;
-
-                    processTimer.Stop();
-                    timer.Start();
-
-                    break;
-                }
+                btnCreate.Enabled = true;
+                btnCancel.Enabled = false;
             }
         }
 
@@ -397,7 +380,7 @@ namespace Workshell.DiskImager
             var timeTaken = DateTime.UtcNow - (new DateTime(started, DateTimeKind.Utc));
             var total = Interlocked.Read(ref _total);
             var totalRead = Interlocked.Read(ref _totalRead);
-            var percentComplete = (int) Math.Round((double) (100 * totalRead) / total);
+            var percentComplete = Math.Min(100, (int)Math.Round((double)(100 * totalRead) / total));
             var readRate = Interlocked.Exchange(ref _readRate, 0);
 
             progressBar.Value = percentComplete;
