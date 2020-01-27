@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Disk Imager Shared", "src\D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Windows Image Reader", "src\Windows Image Reader\Windows Image Reader.csproj", "{16D11D81-75C0-4A2E-B4BC-DB8F58735D3D}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B76478CC-F345-4F88-9F52-FC0E18CF33B0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Windows Image Writer", "src\Windows Image Writer\Windows Image Writer.csproj", "{8014612F-4318-4AB8-B54F-67FC6883629E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,6 +23,10 @@ Global
 		{16D11D81-75C0-4A2E-B4BC-DB8F58735D3D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{16D11D81-75C0-4A2E-B4BC-DB8F58735D3D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{16D11D81-75C0-4A2E-B4BC-DB8F58735D3D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8014612F-4318-4AB8-B54F-67FC6883629E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8014612F-4318-4AB8-B54F-67FC6883629E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8014612F-4318-4AB8-B54F-67FC6883629E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8014612F-4318-4AB8-B54F-67FC6883629E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -51,7 +51,7 @@ namespace Workshell.DiskImager
                         diskInformation.Add(diskNumber, diskInfo);
                     }
 
-                    diskInfo.Drives = ArrayUtils.Add<DriveInfo>(diskInfo.Drives, drive)
+                    diskInfo.Drives = Utils.Add<DriveInfo>(diskInfo.Drives, drive)
                         .OrderBy(_ => _.Name)
                         .ToArray();
                 }
@@ -78,7 +78,7 @@ namespace Workshell.DiskImager
         {
             var result = $"Disk {DiskNumber}";
 
-            if (!ArrayUtils.IsNullOrEmpty(Drives))
+            if (!Utils.IsNullOrEmpty(Drives))
             {
                 var drives = string.Join(", ", Drives.Select(_ => _.Name));
 

@@ -12,6 +12,12 @@ namespace Workshell.DiskImager
 {
     public static class NativeInterop
     {
+        public const int WM_DEVICECHANGE = 0x0219;
+        public const int DBT_DEVICEARRIVAL = 0x8000; // System detected a new device
+        public const int DBT_DEVICEREMOVECOMPLETE = 0x8004; // Device was removed
+        public const int DBT_DEVNODES_CHANGED = 0x0007; // Device changed
+        public const int DBT_DEVTYP_VOLUME = 0x00000002; // Logical volume
+
         public const uint IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS = 0x00560000;
         public const uint IOCTL_DISK_GET_DRIVE_GEOMETRY = 0x70000;
 
@@ -39,6 +45,15 @@ namespace Workshell.DiskImager
             public int TracksPerCylinder;
             public int SectorsPerTrack;
             public int BytesPerSector;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct DEV_BROADCAST_VOLUME
+        {
+            public int dbcv_size;
+            public int dbcv_devicetype;
+            public int dbcv_reserved;
+            public int dbcv_unitmask;
         }
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]

@@ -136,7 +136,7 @@ namespace Workshell.DiskImager
                 var diskExtentsSize = 0U;
                 var success = NativeInterop.DeviceIoControl(driveHandle, NativeInterop.IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, IntPtr.Zero, 0, ref diskExtents, (uint)Marshal.SizeOf(diskExtents), out diskExtentsSize, IntPtr.Zero);
 
-                if (!success || ArrayUtils.IsNullOrEmpty(diskExtents.Extents))
+                if (!success || Utils.IsNullOrEmpty(diskExtents.Extents))
                 {
                     return new int[0];
                 }

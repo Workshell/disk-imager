@@ -1,0 +1,2 @@
+Disk Images (*.img; *.img.gz; *.img.bz2)|*.img;*.img.gz;*.img.bz2
+All Files (*.*)|*.*

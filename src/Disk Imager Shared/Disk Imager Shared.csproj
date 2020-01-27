@@ -33,6 +33,8 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -44,20 +46,59 @@
     <Compile Include="..\CommonAssemblyInfo.cs">
       <Link>CommonAssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="ArrayUtils.cs" />
+    <Compile Include="AboutForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AboutForm.Designer.cs">
+      <DependentUpon>AboutForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="DiskInfo.cs" />
     <Compile Include="DiskReader.cs" />
     <Compile Include="DiskUtils.cs" />
+    <Compile Include="DriveDetector.cs" />
+    <Compile Include="Extensions\Disposable.cs" />
+    <Compile Include="Hashing\HashReader.cs" />
+    <Compile Include="Hashing\HashSumReader.cs" />
     <Compile Include="Hashing\HashSumWriter.cs" />
+    <Compile Include="Hashing\HashValidator.cs" />
     <Compile Include="Hashing\HashWriter.cs" />
+    <Compile Include="Hashing\SHA512HashValidator.cs" />
+    <Compile Include="Hashing\SHA256HashValidator.cs" />
+    <Compile Include="Hashing\SHA1HashValidator.cs" />
+    <Compile Include="Hashing\MD5HashValidator.cs" />
     <Compile Include="Hashing\SHA512HashWriter.cs" />
     <Compile Include="Hashing\SHA256HashWriter.cs" />
     <Compile Include="Hashing\SHA1HashWriter.cs" />
     <Compile Include="Hashing\MD5HashWriter.cs" />
     <Compile Include="NativeInterop.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="Utils.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <EmbeddedResource Include="AboutForm.resx">
+      <DependentUpon>AboutForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\License.txt" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

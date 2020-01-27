@@ -11,15 +11,15 @@ using System.Windows.Forms;
 using ICSharpCode.SharpZipLib.BZip2;
 using ICSharpCode.SharpZipLib.GZip;
 
+using Workshell.DiskImager.Extensions;
 using Workshell.DiskImager.Hashing;
 
 namespace Workshell.DiskImager
 {
     public sealed partial class MainForm : Form
     {
-        private readonly object _locker;
-        private readonly DiskInfo[] _disks;
-
+        private DriveDetector _driveDetector;
+        private DiskInfo[] _disks;
         private CancellationTokenSource _cts;
         private DiskInfo _selectedDisk;
         private string _imageFilename;
@@ -34,9 +34,8 @@ namespace Workshell.DiskImager
         {
             InitializeComponent();
 
-            _locker = new object();
+            _driveDetector = new DriveDetector();
             _disks = DiskInfo.GetDisks();
-
             _cts = null;
             _selectedDisk = null;
             _imageFilename = string.Empty;
@@ -46,6 +45,32 @@ namespace Workshell.DiskImager
             _total = 0;
             _totalRead = 0;
             _readRate = 0;
+
+            Disposed += OnDisposed;
+            _driveDetector.DeviceArrived += OnDeviceAddRemove;
+            _driveDetector.DeviceRemoved += OnDeviceAddRemove;
+        }
+
+        private void OnDisposed(object sender, EventArgs e)
+        {
+            _driveDetector.Dispose();
+        }
+
+        private void OnDeviceAddRemove(object sender, DriveDetectorEventArgs e)
+        {
+            _disks = DiskInfo.GetDisks();
+
+            ddlDevice.Items.Clear();
+
+            foreach (var disk in _disks)
+            {
+                ddlDevice.Items.Add(disk);
+
+                if (_selectedDisk != null && _selectedDisk.DiskNumber == disk.DiskNumber)
+                {
+                    ddlDevice.SelectedItem = disk;
+                }
+            }
         }
 
         private Stream GetCompressionStream(FileStream fileStream)
@@ -78,7 +103,7 @@ namespace Workshell.DiskImager
         {
             MinimumSize = Size;
 
-            saveDlg.Filter = "Disk Images (*.img)|*.img|All Files (*.*)|*.*";
+            saveDlg.Filter = Utils.BuildDialogFilters(Resources.OpenDialogFilters);
 
             foreach (var disk in _disks)
             {
@@ -270,20 +295,18 @@ namespace Workshell.DiskImager
             }
             finally
             {
-                _cts.Dispose();
-
-                _cts = null;
+                _cts.Dispose(() => _cts = null);
 
                 gbxDisk.Enabled = true;
                 gbxImage.Enabled = true;
                 gbxOptions.Enabled = true;
+                gbxProgress.Enabled = false;
 
                 lblTimeTakenValue.Text = string.Empty;
                 lblPercentCompleteValue.Text = string.Empty;
                 lblReadSpeedValue.Text = string.Empty;
                 lblStatus.Text = string.Empty;
                 progressBar.Value = 0;
-                gbxProgress.Enabled = false;
 
                 processTimer.Stop();
                 timer.Start();
@@ -293,6 +316,11 @@ namespace Workshell.DiskImager
         private void btnCancel_Click(object sender, EventArgs e)
         {
             _cts?.Cancel();
+        }
+
+        private void btnAbout_Click(object sender, EventArgs e)
+        {
+            Utils.ShowAboutDialog(Text, null, Icon.ToBitmap());
         }
 
         private void btnExit_Click(object sender, EventArgs e)
