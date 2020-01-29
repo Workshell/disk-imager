@@ -37,10 +37,10 @@
             this.txtFilename = new System.Windows.Forms.TextBox();
             this.gbxProgress = new System.Windows.Forms.GroupBox();
             this.lblStatus = new System.Windows.Forms.Label();
-            this.lblReadSpeedValue = new System.Windows.Forms.Label();
+            this.lblSpeedValue = new System.Windows.Forms.Label();
             this.lblTimeTakenValue = new System.Windows.Forms.Label();
             this.lblPercentCompleteValue = new System.Windows.Forms.Label();
-            this.lblReadSpeed = new System.Windows.Forms.Label();
+            this.lblSpeed = new System.Windows.Forms.Label();
             this.lblPercentComplete = new System.Windows.Forms.Label();
             this.lblTimeTaken = new System.Windows.Forms.Label();
             this.progressBar = new System.Windows.Forms.ProgressBar();
@@ -124,10 +124,10 @@
             this.gbxProgress.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.gbxProgress.Controls.Add(this.lblStatus);
-            this.gbxProgress.Controls.Add(this.lblReadSpeedValue);
+            this.gbxProgress.Controls.Add(this.lblSpeedValue);
             this.gbxProgress.Controls.Add(this.lblTimeTakenValue);
             this.gbxProgress.Controls.Add(this.lblPercentCompleteValue);
-            this.gbxProgress.Controls.Add(this.lblReadSpeed);
+            this.gbxProgress.Controls.Add(this.lblSpeed);
             this.gbxProgress.Controls.Add(this.lblPercentComplete);
             this.gbxProgress.Controls.Add(this.lblTimeTaken);
             this.gbxProgress.Controls.Add(this.progressBar);
@@ -147,14 +147,14 @@
             this.lblStatus.Text = "???";
             this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // lblReadSpeedValue
+            // lblSpeedValue
             // 
-            this.lblReadSpeedValue.AutoSize = true;
-            this.lblReadSpeedValue.Location = new System.Drawing.Point(128, 136);
-            this.lblReadSpeedValue.Name = "lblReadSpeedValue";
-            this.lblReadSpeedValue.Size = new System.Drawing.Size(25, 13);
-            this.lblReadSpeedValue.TabIndex = 13;
-            this.lblReadSpeedValue.Text = "???";
+            this.lblSpeedValue.AutoSize = true;
+            this.lblSpeedValue.Location = new System.Drawing.Point(128, 136);
+            this.lblSpeedValue.Name = "lblSpeedValue";
+            this.lblSpeedValue.Size = new System.Drawing.Size(25, 13);
+            this.lblSpeedValue.TabIndex = 13;
+            this.lblSpeedValue.Text = "???";
             // 
             // lblTimeTakenValue
             // 
@@ -174,14 +174,14 @@
             this.lblPercentCompleteValue.TabIndex = 10;
             this.lblPercentCompleteValue.Text = "???";
             // 
-            // lblReadSpeed
+            // lblSpeed
             // 
-            this.lblReadSpeed.AutoSize = true;
-            this.lblReadSpeed.Location = new System.Drawing.Point(16, 136);
-            this.lblReadSpeed.Name = "lblReadSpeed";
-            this.lblReadSpeed.Size = new System.Drawing.Size(70, 13);
-            this.lblReadSpeed.TabIndex = 8;
-            this.lblReadSpeed.Text = "Read Speed:";
+            this.lblSpeed.AutoSize = true;
+            this.lblSpeed.Location = new System.Drawing.Point(16, 136);
+            this.lblSpeed.Name = "lblSpeed";
+            this.lblSpeed.Size = new System.Drawing.Size(41, 13);
+            this.lblSpeed.TabIndex = 8;
+            this.lblSpeed.Text = "Speed:";
             // 
             // lblPercentComplete
             // 
@@ -241,8 +241,7 @@
             this.ddlCompression.FormattingEnabled = true;
             this.ddlCompression.Items.AddRange(new object[] {
             "None",
-            "GZip",
-            "BZip2"});
+            "GZip"});
             this.ddlCompression.Location = new System.Drawing.Point(304, 24);
             this.ddlCompression.Name = "ddlCompression";
             this.ddlCompression.Size = new System.Drawing.Size(104, 23);
@@ -377,10 +376,10 @@
         private System.Windows.Forms.Timer processTimer;
         private System.Windows.Forms.Label lblTimeTakenValue;
         private System.Windows.Forms.Label lblPercentCompleteValue;
-        private System.Windows.Forms.Label lblReadSpeed;
+        private System.Windows.Forms.Label lblSpeed;
         private System.Windows.Forms.Label lblPercentComplete;
         private System.Windows.Forms.Label lblTimeTaken;
-        private System.Windows.Forms.Label lblReadSpeedValue;
+        private System.Windows.Forms.Label lblSpeedValue;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Button btnAbout;
     }

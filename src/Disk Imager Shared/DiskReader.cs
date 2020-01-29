@@ -6,28 +6,30 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Microsoft.Win32.SafeHandles;
+
 namespace Workshell.DiskImager
 {
     public sealed class DiskReader : IDisposable
     {
         private readonly DiskInfo _diskInfo;
+        private readonly Stack<SafeFileHandle> _volumeHandles;
+
+        private readonly SafeFileHandle _deviceHandle;
         private readonly Stream _stream;
-        private int _disposed;
+        private bool _closed;
         private long _readSize;
 
         public DiskReader(DiskInfo diskInfo)
         {
-            var diskPath = $"\\\\.\\PhysicalDrive{diskInfo.DiskNumber}";
-            var diskHandle = NativeInterop.CreateFile(diskPath, FileAccess.Read, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
-
-            if (diskHandle.IsInvalid)
-            {
-                throw new Exception($"Failed to open disk: {diskPath}");
-            }
-
             _diskInfo = diskInfo;
-            _stream = new FileStream(diskHandle, FileAccess.Read, /*ushort.MaxValue + 1*/ 1024 * 64, false);
-            _disposed = 0;
+            _volumeHandles = new Stack<SafeFileHandle>(_diskInfo.Drives?.Length ?? 0);
+
+            OpenVolumes();
+
+            _deviceHandle = DiskUtils.GetDeviceHandle(diskInfo.DiskNumber);
+            _stream = new FileStream(_deviceHandle, FileAccess.Read, 4096, false);
+            _closed = false;
             _readSize = 0;
         }
 
@@ -35,17 +37,21 @@ namespace Workshell.DiskImager
 
         public void Dispose()
         {
-            if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 1)
-            {
-                return;
-            }
-
             Close();
         }
 
         public void Close()
         {
-            _stream.Close();
+            if (_closed)
+            {
+                return;
+            }
+
+            _stream.Dispose();
+            _deviceHandle.Dispose();
+            CloseVolumes();
+
+            _closed = true;
         }
 
         public bool ReadSector(byte[] buffer, int offset)
@@ -70,6 +76,59 @@ namespace Workshell.DiskImager
             _readSize += numRead;
 
             return (numRead == _diskInfo.SectorSize);
+        }
+
+        private void OpenVolumes()
+        {
+            if (!Utils.IsNullOrEmpty(_diskInfo.Drives))
+            {
+                foreach (var drive in _diskInfo.Drives)
+                {
+                    try
+                    {
+                        var volumeHandle = DiskUtils.GetVolumeHandle(drive.Name);
+
+                        if (volumeHandle == null)
+                        {
+                            throw new Exception($"Could not open volume: {drive.Name}");
+                        }
+
+                        if (!DiskUtils.LockVolume(volumeHandle))
+                        {
+                            volumeHandle.Close();
+
+                            throw new Exception($"Could not lock volume: {drive.Name}");
+                        }
+
+                        if (!DiskUtils.UnmountVolume(volumeHandle))
+                        {
+                            DiskUtils.UnlockVolume(volumeHandle);
+                            volumeHandle.Close();
+
+                            throw new Exception($"Could not unmount volume: {drive.Name}");
+                        }
+
+                        _volumeHandles.Push(volumeHandle);
+                    }
+                    catch
+                    {
+                        CloseVolumes();
+
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private void CloseVolumes()
+        {
+            while (_volumeHandles.Count > 0)
+            {
+                var volumeHandle = _volumeHandles.Pop();
+
+                DiskUtils.UnlockVolume(volumeHandle);
+                volumeHandle.Dispose();
+            }
         }
 
         #endregion

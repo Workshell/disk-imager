@@ -171,7 +171,7 @@ namespace Workshell.DiskImager
 
             lblTimeTakenValue.Text = string.Empty;
             lblPercentCompleteValue.Text = string.Empty;
-            lblWriteSpeedValue.Text = string.Empty;
+            lblSpeedValue.Text = string.Empty;
             lblStatus.Text = string.Empty;
             progressBar.Value = 0;
             gbxProgress.Enabled = false;
@@ -257,7 +257,7 @@ namespace Workshell.DiskImager
 
                 lblTimeTakenValue.Text = string.Empty;
                 lblPercentCompleteValue.Text = string.Empty;
-                lblWriteSpeedValue.Text = string.Empty;
+                lblSpeedValue.Text = string.Empty;
                 lblStatus.Text = string.Empty;
                 progressBar.Value = 0;
 
@@ -329,7 +329,7 @@ namespace Workshell.DiskImager
             progressBar.Value = percentComplete;
             lblTimeTakenValue.Text = timeTaken.ToString(timeTaken.Days == 0 ? @"hh\:mm\:ss" : @"d\.hh\:mm\:ss");
             lblPercentCompleteValue.Text = $"{percentComplete}%";
-            lblWriteSpeedValue.Text = $"{Utils.FormatBytes(writeRate)}/sec";
+            lblSpeedValue.Text = $"{Utils.FormatBytes(writeRate)}/sec";
         }
     }
 }

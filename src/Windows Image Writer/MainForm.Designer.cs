@@ -41,10 +41,10 @@
             this.txtHash = new System.Windows.Forms.TextBox();
             this.gbxProgress = new System.Windows.Forms.GroupBox();
             this.lblStatus = new System.Windows.Forms.Label();
-            this.lblWriteSpeedValue = new System.Windows.Forms.Label();
+            this.lblSpeedValue = new System.Windows.Forms.Label();
             this.lblTimeTakenValue = new System.Windows.Forms.Label();
             this.lblPercentCompleteValue = new System.Windows.Forms.Label();
-            this.lblWriteSpeed = new System.Windows.Forms.Label();
+            this.lblSpeed = new System.Windows.Forms.Label();
             this.lblPercentComplete = new System.Windows.Forms.Label();
             this.lblTimeTaken = new System.Windows.Forms.Label();
             this.progressBar = new System.Windows.Forms.ProgressBar();
@@ -171,10 +171,10 @@
             this.gbxProgress.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.gbxProgress.Controls.Add(this.lblStatus);
-            this.gbxProgress.Controls.Add(this.lblWriteSpeedValue);
+            this.gbxProgress.Controls.Add(this.lblSpeedValue);
             this.gbxProgress.Controls.Add(this.lblTimeTakenValue);
             this.gbxProgress.Controls.Add(this.lblPercentCompleteValue);
-            this.gbxProgress.Controls.Add(this.lblWriteSpeed);
+            this.gbxProgress.Controls.Add(this.lblSpeed);
             this.gbxProgress.Controls.Add(this.lblPercentComplete);
             this.gbxProgress.Controls.Add(this.lblTimeTaken);
             this.gbxProgress.Controls.Add(this.progressBar);
@@ -194,14 +194,14 @@
             this.lblStatus.Text = "???";
             this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // lblWriteSpeedValue
+            // lblSpeedValue
             // 
-            this.lblWriteSpeedValue.AutoSize = true;
-            this.lblWriteSpeedValue.Location = new System.Drawing.Point(128, 136);
-            this.lblWriteSpeedValue.Name = "lblWriteSpeedValue";
-            this.lblWriteSpeedValue.Size = new System.Drawing.Size(25, 13);
-            this.lblWriteSpeedValue.TabIndex = 13;
-            this.lblWriteSpeedValue.Text = "???";
+            this.lblSpeedValue.AutoSize = true;
+            this.lblSpeedValue.Location = new System.Drawing.Point(128, 136);
+            this.lblSpeedValue.Name = "lblSpeedValue";
+            this.lblSpeedValue.Size = new System.Drawing.Size(25, 13);
+            this.lblSpeedValue.TabIndex = 13;
+            this.lblSpeedValue.Text = "???";
             // 
             // lblTimeTakenValue
             // 
@@ -221,14 +221,14 @@
             this.lblPercentCompleteValue.TabIndex = 10;
             this.lblPercentCompleteValue.Text = "???";
             // 
-            // lblWriteSpeed
+            // lblSpeed
             // 
-            this.lblWriteSpeed.AutoSize = true;
-            this.lblWriteSpeed.Location = new System.Drawing.Point(16, 136);
-            this.lblWriteSpeed.Name = "lblWriteSpeed";
-            this.lblWriteSpeed.Size = new System.Drawing.Size(69, 13);
-            this.lblWriteSpeed.TabIndex = 8;
-            this.lblWriteSpeed.Text = "Write Speed:";
+            this.lblSpeed.AutoSize = true;
+            this.lblSpeed.Location = new System.Drawing.Point(16, 136);
+            this.lblSpeed.Name = "lblSpeed";
+            this.lblSpeed.Size = new System.Drawing.Size(41, 13);
+            this.lblSpeed.TabIndex = 8;
+            this.lblSpeed.Text = "Speed:";
             // 
             // lblPercentComplete
             // 
@@ -350,10 +350,10 @@
         private System.Windows.Forms.TextBox txtHash;
         private System.Windows.Forms.GroupBox gbxProgress;
         private System.Windows.Forms.Label lblStatus;
-        private System.Windows.Forms.Label lblWriteSpeedValue;
+        private System.Windows.Forms.Label lblSpeedValue;
         private System.Windows.Forms.Label lblTimeTakenValue;
         private System.Windows.Forms.Label lblPercentCompleteValue;
-        private System.Windows.Forms.Label lblWriteSpeed;
+        private System.Windows.Forms.Label lblSpeed;
         private System.Windows.Forms.Label lblPercentComplete;
         private System.Windows.Forms.Label lblTimeTaken;
         private System.Windows.Forms.ProgressBar progressBar;

@@ -20,7 +20,7 @@ namespace Workshell.DiskImager
 
         public static DiskInfo[] GetDisks(DriveInfo[] drives, bool onlyRemovable = true, bool onlyReady = true)
         {
-            var diskInformation = new Dictionary<int, DiskInfo>();
+            var diskInformation = new Dictionary<ushort, DiskInfo>();
 
             foreach (var drive in drives)
             {
@@ -92,7 +92,7 @@ namespace Workshell.DiskImager
 
         #region Properties
 
-        public int DiskNumber { get; private set; }
+        public ushort DiskNumber { get; private set; }
         public long Size { get; private set; }
         public int SectorSize { get; private set; }
         public long SectorCount { get; private set; }

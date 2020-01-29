@@ -6,139 +6,137 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
+using Microsoft.Win32.SafeHandles;
+
 namespace Workshell.DiskImager
 {
     internal static class DiskUtils
     {
         #region Methods
 
-        public static long GetPhysicalDiskSize(int diskNumber)
+        public static bool GetDiskGeometry(ushort diskNumber, out NativeInterop.DISK_GEOMETRY geometry)
         {
-            var drivePath = $"\\\\.\\PhysicalDrive{diskNumber}";
-            var driveHandle = NativeInterop.CreateFile(drivePath, 0, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+            geometry = new NativeInterop.DISK_GEOMETRY();
 
-            if (driveHandle.IsInvalid)
+            var deviceHandle = GetDeviceHandle(diskNumber);
+
+            if (deviceHandle == null)
+            {
+                return false;
+            }
+
+            using (deviceHandle)
+            {
+                var geometrySize = 0U;
+                
+                return NativeInterop.DeviceIoControl(deviceHandle, NativeInterop.IOCTL_DISK_GET_DRIVE_GEOMETRY, IntPtr.Zero, 0, ref geometry, (uint)Marshal.SizeOf(geometry), out geometrySize, IntPtr.Zero);
+            }
+        }
+
+        public static long GetPhysicalDiskSize(ushort diskNumber)
+        {
+            NativeInterop.DISK_GEOMETRY geometry;
+
+            if (!GetDiskGeometry(diskNumber, out geometry))
             {
                 return -1;
             }
 
-            try
-            {
-                var geometry = new NativeInterop.DISK_GEOMETRY();
-                var geometrySize = 0U;
-                var success = NativeInterop.DeviceIoControl(driveHandle, NativeInterop.IOCTL_DISK_GET_DRIVE_GEOMETRY, IntPtr.Zero, 0, ref geometry, (uint)Marshal.SizeOf(geometry), out geometrySize, IntPtr.Zero);
+            var result = geometry.BytesPerSector * geometry.SectorsPerTrack * geometry.TracksPerCylinder * geometry.Cylinders;
 
-                if (!success)
-                {
-                    return -1;
-                }
-
-                var result = geometry.BytesPerSector * geometry.SectorsPerTrack * geometry.TracksPerCylinder * geometry.Cylinders;
-
-                return result;
-            }
-            finally
-            {
-                if (!driveHandle.IsClosed)
-                {
-                    driveHandle.Close();
-                }
-            }
+            return result;
         }
 
-        public static int GetPhysicalDiskSectorSize(int diskNumber)
+        public static int GetPhysicalDiskSectorSize(ushort diskNumber)
         {
-            var drivePath = $"\\\\.\\PhysicalDrive{diskNumber}";
-            var driveHandle = NativeInterop.CreateFile(drivePath, 0, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+            NativeInterop.DISK_GEOMETRY geometry;
 
-            if (driveHandle.IsInvalid)
+            if (!GetDiskGeometry(diskNumber, out geometry))
             {
                 return -1;
             }
 
-            try
-            {
-                var geometry = new NativeInterop.DISK_GEOMETRY();
-                var geometrySize = 0U;
-                var success = NativeInterop.DeviceIoControl(driveHandle, NativeInterop.IOCTL_DISK_GET_DRIVE_GEOMETRY, IntPtr.Zero, 0, ref geometry, (uint)Marshal.SizeOf(geometry), out geometrySize, IntPtr.Zero);
+            var result = geometry.BytesPerSector;
 
-                if (!success)
-                {
-                    return -1;
-                }
-
-                var result = geometry.BytesPerSector;
-
-                return result;
-            }
-            finally
-            {
-                if (!driveHandle.IsClosed)
-                {
-                    driveHandle.Close();
-                }
-            }
+            return result;
         }
 
-        public static long GetPhysicalDiskSectorCount(int diskNumber)
+        public static long GetPhysicalDiskSectorCount(ushort diskNumber)
         {
-            var drivePath = $"\\\\.\\PhysicalDrive{diskNumber}";
-            var driveHandle = NativeInterop.CreateFile(drivePath, 0, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+            NativeInterop.DISK_GEOMETRY geometry;
 
-            if (driveHandle.IsInvalid)
+            if (!GetDiskGeometry(diskNumber, out geometry))
             {
                 return -1;
             }
 
-            try
-            {
-                var geometry = new NativeInterop.DISK_GEOMETRY();
-                var geometrySize = 0U;
-                var success = NativeInterop.DeviceIoControl(driveHandle, NativeInterop.IOCTL_DISK_GET_DRIVE_GEOMETRY, IntPtr.Zero, 0, ref geometry, (uint)Marshal.SizeOf(geometry), out geometrySize, IntPtr.Zero);
+            var result = geometry.SectorsPerTrack * geometry.TracksPerCylinder * geometry.Cylinders;
 
-                if (!success)
-                {
-                    return -1;
-                }
-
-                var result = geometry.SectorsPerTrack * geometry.TracksPerCylinder * geometry.Cylinders;
-
-                return result;
-            }
-            finally
-            {
-                if (!driveHandle.IsClosed)
-                {
-                    driveHandle.Close();
-                }
-            }
+            return result;
         }
 
-        public static int[] GetPhysicalDiskNumbersFromDrive(string drive)
+        public static SafeFileHandle GetVolumeHandle(string drive, bool readOnly = true)
+        {
+            var path = $"\\\\.\\{drive.TrimEnd('\\')}".ToUpperInvariant();
+            var handle = NativeInterop.CreateFile(path, (readOnly ? FileAccess.Read : FileAccess.ReadWrite), FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+
+            if (handle.IsInvalid)
+            {
+                handle.Dispose();
+
+                return null;
+            }
+
+            return handle;
+        }
+
+        public static bool LockVolume(SafeFileHandle volumeHandle)
+        {
+            uint bytesReturned;
+            var result = NativeInterop.DeviceIoControl(volumeHandle, NativeInterop.FSCTL_LOCK_VOLUME, IntPtr.Zero, 0, IntPtr.Zero, 0, out bytesReturned, IntPtr.Zero);
+
+            return result;
+        }
+
+        public static bool UnlockVolume(SafeFileHandle volumeHandle)
+        {
+            uint bytesReturned;
+
+            return NativeInterop.DeviceIoControl(volumeHandle, NativeInterop.FSCTL_UNLOCK_VOLUME, IntPtr.Zero, 0, IntPtr.Zero, 0, out bytesReturned, IntPtr.Zero);
+        }
+
+        public static bool UnmountVolume(SafeFileHandle volumeHandle)
+        {
+            uint bytesReturned;
+            var result = NativeInterop.DeviceIoControl(volumeHandle, NativeInterop.FSCTL_DISMOUNT_VOLUME, IntPtr.Zero, 0, IntPtr.Zero, 0, out bytesReturned, IntPtr.Zero);
+
+            return result;
+        }
+
+        public static ushort[] GetPhysicalDiskNumbersFromDrive(string drive)
         {
             if (string.IsNullOrWhiteSpace(drive))
             {
-                return new int[0];
+                return new ushort[0];
             }
 
             var diskNumbers = new List<uint>();
-            var drivePath = $"\\\\.\\{drive.TrimEnd('\\')}";
-            var driveHandle = NativeInterop.CreateFile(drivePath, FileAccess.Read, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+            var volumeHandle = GetVolumeHandle(drive);
 
-            if (driveHandle.IsInvalid)
+            if (volumeHandle == null)
             {
-                return new int[0];
+                return new ushort[0];
             }
 
-            try
+            using (volumeHandle)
             {
                 var diskExtents = new NativeInterop.VOLUME_DISK_EXTENTS();
                 var diskExtentsSize = 0U;
-                var success = NativeInterop.DeviceIoControl(driveHandle, NativeInterop.IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, IntPtr.Zero, 0, ref diskExtents, (uint)Marshal.SizeOf(diskExtents), out diskExtentsSize, IntPtr.Zero);
+                var success = NativeInterop.DeviceIoControl(volumeHandle, NativeInterop.IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, IntPtr.Zero, 0, ref diskExtents, (uint)Marshal.SizeOf(diskExtents), out diskExtentsSize, IntPtr.Zero);
 
                 if (!success || Utils.IsNullOrEmpty(diskExtents.Extents))
                 {
-                    return new int[0];
+                    return new ushort[0];
                 }
 
                 for (var i = 0; i < diskExtents.NumberOfDiskExtents; i++)
@@ -147,17 +145,25 @@ namespace Workshell.DiskImager
                 }
 
                 return diskNumbers.Distinct()
-                    .Select(Convert.ToInt32)
+                    .Select(Convert.ToUInt16)
                     .OrderBy(_ => _)
                     .ToArray();
             }
-            finally
+        }
+
+        public static SafeFileHandle GetDeviceHandle(ushort diskNumber, bool readOnly = true)
+        {
+            var path = $"\\\\.\\PhysicalDrive{diskNumber}";
+            var handle = NativeInterop.CreateFile(path, (readOnly ? FileAccess.Read : FileAccess.ReadWrite), FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+
+            if (handle.IsInvalid)
             {
-                if (!driveHandle.IsClosed)
-                {
-                    driveHandle.Close();
-                }
+                handle.Dispose();
+
+                return null;
             }
+
+            return handle;
         }
 
         #endregion
