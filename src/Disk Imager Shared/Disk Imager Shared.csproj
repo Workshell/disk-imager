@@ -52,6 +52,7 @@
     <Compile Include="AboutForm.Designer.cs">
       <DependentUpon>AboutForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="CommonSizes.cs" />
     <Compile Include="DiskInfo.cs" />
     <Compile Include="DiskReader.cs" />
     <Compile Include="DiskUtils.cs" />

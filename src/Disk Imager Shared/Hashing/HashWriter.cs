@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Workshell.DiskImager.Hashing
@@ -16,7 +17,12 @@ namespace Workshell.DiskImager.Hashing
 
         #region Methods
 
-        public abstract void Generate(Func<long, long, int, bool> callback = null);
+        public virtual void Generate(Action<long, long, int> callback = null)
+        {
+            Generate(CancellationToken.None, callback);
+        }
+
+        public abstract void Generate(CancellationToken cancellationToken, Action<long, long, int> callback = null);
 
         #endregion
 

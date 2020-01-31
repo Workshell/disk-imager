@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -28,8 +29,6 @@ namespace Workshell.DiskImager
         private string _hashFilename;
         private long _started;
         private long _total;
-        private long _totalRead;
-        private long _readRate;
         private long _totalWrite;
         private long _writeRate;
 
@@ -45,8 +44,6 @@ namespace Workshell.DiskImager
             _hashFilename = string.Empty;
             _started = 0;
             _total = 0;
-            _totalRead = 0;
-            _readRate = 0;
             _totalWrite = 0;
             _writeRate = 0;
 
@@ -81,6 +78,10 @@ namespace Workshell.DiskImager
         {
             lblStatus.Text = "Validating image hash...";
             progressBar.Value = 0;
+
+            Interlocked.Exchange(ref _total, Utils.GetFileSize(_imageFilename));
+            Interlocked.Exchange(ref _totalWrite, 0);
+            Interlocked.Exchange(ref _writeRate, 0);
 
             // Get hash for file from hash sum file
             var fileName = Path.GetFileName(_imageFilename);
@@ -125,16 +126,13 @@ namespace Workshell.DiskImager
                 }
 
                 // Perform validation
-                Func<long, long, int, bool> validationCallback = (total, totalWrite, numWrite) =>
+                Action<long, long, int> validationCallback = (total, totalWrite, numWrite) =>
                 {
-                    Interlocked.Exchange(ref _total, total);
                     Interlocked.Exchange(ref _totalWrite, totalWrite);
                     Interlocked.Add(ref _writeRate, numWrite);
-
-                    return !_cts.Token.IsCancellationRequested;
                 };
 
-                hashValid = validator.Validate(validationCallback);
+                hashValid = validator.Validate(_cts.Token, validationCallback);
             });
 
             if (_cts.Token.IsCancellationRequested)
@@ -154,6 +152,24 @@ namespace Workshell.DiskImager
 
         private async Task<bool> WriteImageFileAsync()
         {
+
+            lblStatus.Text = "Writing image...";
+            progressBar.Value = 0;
+
+            Interlocked.Exchange(ref _total, Utils.GetFileSize(_imageFilename));
+            Interlocked.Exchange(ref _totalWrite, 0);
+            Interlocked.Exchange(ref _writeRate, 0);
+
+            await Task.Run(() =>
+            {
+                // Do stuff
+            });
+
+            if (_cts.IsCancellationRequested)
+            {
+                return false;
+            }
+
             return true;
         }
 
@@ -196,6 +212,11 @@ namespace Workshell.DiskImager
 
         private async void btnWrite_Click(object sender, EventArgs e)
         {
+            if (MessageBox.Show("This operation will overwrite any existing data on the selected physical disk. Are you sure you want to continue?", "Confirm Write", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            {
+                return;
+            }
+
             timer.Stop();
             processTimer.Start();
 
@@ -213,11 +234,6 @@ namespace Workshell.DiskImager
             _hashFilename = txtHash.Text;
 
             Interlocked.Exchange(ref _started, DateTime.UtcNow.Ticks);
-            Interlocked.Exchange(ref _total, Utils.GetFileSize(_imageFilename));
-            Interlocked.Exchange(ref _totalRead, 0);
-            Interlocked.Exchange(ref _readRate, 0);
-            Interlocked.Exchange(ref _totalWrite, 0);
-            Interlocked.Exchange(ref _writeRate, 0);
 
             try
             {
@@ -240,7 +256,7 @@ namespace Workshell.DiskImager
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Exception:\r\n\r\n{ex}", "Disk Image Writer Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, "Disk Image Writer Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
                 #if DEBUG
                 throw; // When debugging re-throw for the debugger

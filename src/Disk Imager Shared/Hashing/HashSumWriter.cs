@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Workshell.DiskImager.Hashing
@@ -16,44 +17,36 @@ namespace Workshell.DiskImager.Hashing
 
         #region Methods
 
-        public override void Generate(Func<long, long, int, bool> callback = null)
+        public override void Generate(CancellationToken cancellationToken, Action<long, long, int> callback = null)
         {
             var hash = string.Empty;
 
             using (var algorithm = GetAlgorithm())
             {
-                using (var imageFile = new FileStream(ImageFilename, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var imageFile = new FileStream(ImageFilename, FileMode.Open, FileAccess.Read, FileShare.Read, CommonSizes._64K, FileOptions.SequentialScan))
                 {
-                    var buffer = new byte[1024 * 64];
+                    var buffer = new byte[CommonSizes._4K];
                     var totalRead = 0L;
                     var numRead = imageFile.Read(buffer, 0, buffer.Length);
 
-                    while (numRead > 0)
+                    while (numRead > 0 && !cancellationToken.IsCancellationRequested)
                     {
                         totalRead += numRead;
 
                         algorithm.TransformBlock(buffer, 0, numRead, null, 0);
-
-                        if (callback != null && !callback.Invoke(imageFile.Length, totalRead, numRead))
-                        {
-                            return;
-                        }
+                        callback?.Invoke(imageFile.Length, totalRead, numRead);
 
                         numRead = imageFile.Read(buffer, 0, buffer.Length);
                     }
 
                     algorithm.TransformFinalBlock(new byte[0], 0, 0);
-
-                    if (callback != null && !callback.Invoke(imageFile.Length, totalRead, numRead))
-                    {
-                        return;
-                    }
+                    callback?.Invoke(imageFile.Length, totalRead, numRead);
                 }
 
                 hash = Utils.BytesToString(algorithm.Hash);
             }
 
-            var file = new FileStream(HashFilename, FileMode.Create, FileAccess.Write, FileShare.None);
+            var file = new FileStream(HashFilename, FileMode.Create, FileAccess.Write, FileShare.None, CommonSizes._64K, FileOptions.SequentialScan);
 
             using (var writer = new StreamWriter(file, Encoding.UTF8))
             {

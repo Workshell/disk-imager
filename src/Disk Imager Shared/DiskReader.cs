@@ -18,7 +18,7 @@ namespace Workshell.DiskImager
         private readonly SafeFileHandle _deviceHandle;
         private readonly Stream _stream;
         private bool _closed;
-        private long _readSize;
+        private long _totalRead;
 
         public DiskReader(DiskInfo diskInfo)
         {
@@ -28,9 +28,9 @@ namespace Workshell.DiskImager
             OpenVolumes();
 
             _deviceHandle = DiskUtils.GetDeviceHandle(diskInfo.DiskNumber);
-            _stream = new FileStream(_deviceHandle, FileAccess.Read, 4096, false);
+            _stream = new FileStream(_deviceHandle, FileAccess.Read, CommonSizes._128K, false);
             _closed = false;
-            _readSize = 0;
+            _totalRead = 0;
         }
 
         #region Methods
@@ -54,28 +54,33 @@ namespace Workshell.DiskImager
             _closed = true;
         }
 
-        public bool ReadSector(byte[] buffer, int offset)
+        public bool ReadSector(byte[] buffer)
         {
-            if (_readSize >= _diskInfo.Size)
-            {
-                return false;
-            }
-
             if (buffer.Length < _diskInfo.SectorSize)
             {
                 return false;
             }
 
-            if ((offset + _diskInfo.SectorSize) > buffer.Length)
+            if (_totalRead >= _diskInfo.Size)
             {
                 return false;
             }
 
-            var numRead = _stream.Read(buffer, offset, _diskInfo.SectorSize);
+            if ((_totalRead + buffer.Length) > _diskInfo.Size)
+            {
+                return false;
+            }
 
-            _readSize += numRead;
+            var numRead = _stream.Read(buffer, 0, _diskInfo.SectorSize);
 
-            return (numRead == _diskInfo.SectorSize);
+            if (numRead != _diskInfo.SectorSize)
+            {
+                return false;
+            }
+
+            _totalRead += numRead;
+
+            return true;
         }
 
         private void OpenVolumes()

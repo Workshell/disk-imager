@@ -26,7 +26,7 @@ namespace Workshell.DiskImager.Hashing
                 return results;
             }
 
-            var file = new FileStream(HashFilename, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var file = new FileStream(HashFilename, FileMode.Open, FileAccess.Read, FileShare.Read, CommonSizes._64K, FileOptions.SequentialScan);
 
             using (var reader = new StreamReader(file, Encoding.UTF8, true))
             {

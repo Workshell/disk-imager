@@ -78,13 +78,9 @@ namespace Workshell.DiskImager
         {
             Stream result;
 
-            if (string.Compare("none", _compression, StringComparison.OrdinalIgnoreCase) == 0)
+            if (string.Compare("gzip", _compression, StringComparison.OrdinalIgnoreCase) == 0)
             {
-                result = fileStream;
-            }
-            else if (string.Compare("gzip", _compression, StringComparison.OrdinalIgnoreCase) == 0)
-            {
-                result = new GZipStream(fileStream, CompressionLevel.Optimal, true);
+                result = new GZipStream(fileStream, CompressionLevel.Optimal, false);
             }
             else
             {
@@ -99,33 +95,26 @@ namespace Workshell.DiskImager
             lblStatus.Text = "Creating disk image...";
             progressBar.Value = 0;
 
+            Interlocked.Exchange(ref _total, _selectedDisk.Size);
+            Interlocked.Exchange(ref _totalRead, 0);
+            Interlocked.Exchange(ref _readRate, 0);
+
             await Task.Run(() =>
             {
-                using (var file = new FileStream(_imageFilename, FileMode.Create, FileAccess.Write, FileShare.None))
+                var file = new FileStream(_imageFilename, FileMode.Create, FileAccess.Write, FileShare.None, CommonSizes._64K, FileOptions.SequentialScan);
+
+                using (var writer = GetCompressionStream(file))
                 {
-                    using (var writer = GetCompressionStream(file))
+                    using (var reader = new DiskReader(_selectedDisk))
                     {
-                        using (var reader = new DiskReader(_selectedDisk))
+                        var buffer = new byte[_selectedDisk.SectorSize];
+
+                        while (!_cts.Token.IsCancellationRequested && reader.ReadSector(buffer))
                         {
-                            var buffer = new byte[_selectedDisk.SectorSize];
+                            Interlocked.Add(ref _totalRead, buffer.Length);
+                            Interlocked.Add(ref _readRate, buffer.Length);
 
-                            for (var i = 0; i < _selectedDisk.SectorCount; i++)
-                            {
-                                if (_cts.Token.IsCancellationRequested)
-                                {
-                                    break;
-                                }
-
-                                if (!reader.ReadSector(buffer, 0))
-                                {
-                                    break;
-                                }
-
-                                Interlocked.Add(ref _totalRead, buffer.Length);
-                                Interlocked.Add(ref _readRate, buffer.Length);
-
-                                writer.Write(buffer, 0, buffer.Length);
-                            }
+                            writer.Write(buffer, 0, buffer.Length);
                         }
 
                         writer.Flush();
@@ -153,6 +142,10 @@ namespace Workshell.DiskImager
                 lblStatus.Text = "Creating hash file...";
                 progressBar.Value = 0;
 
+                Interlocked.Exchange(ref _total, Utils.GetFileSize(_imageFilename));
+                Interlocked.Exchange(ref _totalRead, 0);
+                Interlocked.Exchange(ref _readRate, 0);
+
                 await Task.Run(() =>
                 {
                     HashWriter hashWriter = null;
@@ -176,17 +169,14 @@ namespace Workshell.DiskImager
 
                     if (hashWriter != null)
                     {
-                        Func<long, long, int, bool> generateCallback = (total, totalRead, numRead) =>
+                        Action<long, long, int> generateCallback = (total, totalRead, numRead) =>
                         {
-                            Interlocked.Exchange(ref _total, total);
-                            Interlocked.Exchange(ref _totalRead, totalRead);
+                            Interlocked.Add(ref _totalRead, numRead);
                             Interlocked.Add(ref _readRate, numRead);
-
-                            return !_cts.Token.IsCancellationRequested;
                         };
                         _hashFilename = hashWriter.HashFilename;
 
-                        hashWriter.Generate(generateCallback);
+                        hashWriter.Generate(_cts.Token, generateCallback);
                     }
                 });
 
@@ -269,9 +259,6 @@ namespace Workshell.DiskImager
             _compression = ddlCompression.SelectedItem.ToString();
 
             Interlocked.Exchange(ref _started, DateTime.UtcNow.Ticks);
-            Interlocked.Exchange(ref _total, _selectedDisk.Size);
-            Interlocked.Exchange(ref _totalRead, 0);
-            Interlocked.Exchange(ref _readRate, 0);
 
             try
             {
@@ -290,7 +277,7 @@ namespace Workshell.DiskImager
                     File.Delete(_hashFilename);
                 }
 
-                MessageBox.Show($"Exception:\r\n\r\n{ex}", "Disk Image Reader Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, "Disk Image Reader Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
                 #if DEBUG
                 throw; // When debugging re-throw for the debugger
