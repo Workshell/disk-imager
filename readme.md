@@ -2,6 +2,8 @@
 
 [![License](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/Workshell/pe/blob/master/license.txt)
 
+![Reader](https://img.workshell.co.uk/github/disk-imager/reader.png) ![Writer](https://img.workshell.co.uk/github/disk-imager/writer.png)
+
 A simple set of applications to read and write raw images of USB, SD and microSD drives.
 
 Useful for reading and writing things like Raspberry Pi images.
