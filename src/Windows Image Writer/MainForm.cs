@@ -1,4 +1,26 @@
-﻿using System;
+﻿#region License
+//  Copyright(c) Workshell Ltd
+//
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to deal
+//  in the Software without restriction, including without limitation the rights
+//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//  copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+//
+//  The above copyright notice and this permission notice shall be included in all
+//  copies or substantial portions of the Software.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//  SOFTWARE.
+#endregion
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -72,6 +94,22 @@ namespace Workshell.DiskImager
                     ddlDevice.SelectedItem = disk;
                 }
             }
+        }
+
+        private Stream GetDecompressionStream(string fileName, FileStream fileStream)
+        {
+            Stream result;
+
+            if (fileName.EndsWith(".gz", StringComparison.OrdinalIgnoreCase))
+            {
+                result = new GZipStream(fileStream, CompressionMode.Decompress, false);
+            }
+            else
+            {
+                result = fileStream;
+            }
+
+            return result;
         }
 
         private async Task<bool> ValidateHashAsync()
@@ -152,20 +190,48 @@ namespace Workshell.DiskImager
 
         private async Task<bool> WriteImageFileAsync()
         {
-
             lblStatus.Text = "Writing image...";
             progressBar.Value = 0;
 
-            Interlocked.Exchange(ref _total, Utils.GetFileSize(_imageFilename));
+            Interlocked.Exchange(ref _total, _selectedDisk.Size);
             Interlocked.Exchange(ref _totalWrite, 0);
             Interlocked.Exchange(ref _writeRate, 0);
 
             await Task.Run(() =>
             {
-                // Do stuff
+                var file = new FileStream(_imageFilename, FileMode.Open, FileAccess.Read, FileShare.Read, CommonSizes._64K, FileOptions.SequentialScan);
+
+                using (var reader = GetDecompressionStream(_imageFilename, file))
+                {
+                    using (var writer = new DiskWriter(_selectedDisk))
+                    {
+                        var buffer = new byte[_selectedDisk.SectorSize];
+                        var numRead = reader.Read(buffer, 0, buffer.Length);
+
+                        while (!_cts.Token.IsCancellationRequested && numRead > 0)
+                        {
+                            Interlocked.Add(ref _totalWrite, numRead);
+                            Interlocked.Add(ref _writeRate, numRead);
+
+                            if (!writer.WriteSector(buffer))
+                            {
+                                break;
+                            }
+
+                            numRead = reader.Read(buffer, 0, buffer.Length);
+                        }
+                    }
+                }
             });
 
-            if (_cts.IsCancellationRequested)
+            if (Interlocked.Read(ref _totalWrite) > Interlocked.Read(ref _total))
+            {
+                MessageBox.Show("Cannot continue, it would appear we have reached the end of the disk but there's still more image to write.", "Disk Image Writer Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                return false;
+            }
+
+            if (_cts.Token.IsCancellationRequested)
             {
                 return false;
             }

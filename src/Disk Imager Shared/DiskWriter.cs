@@ -25,14 +25,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.Win32.SafeHandles;
 
 namespace Workshell.DiskImager
 {
-    public sealed class DiskReader : IDisposable
+    public sealed class DiskWriter : IDisposable
     {
         private readonly DiskInfo _diskInfo;
         private readonly Stack<SafeFileHandle> _volumeHandles;
@@ -41,20 +40,20 @@ namespace Workshell.DiskImager
         private readonly Stream _stream;
         private bool _disposed;
         private bool _closed;
-        private long _totalRead;
+        private long _totalWrite;
 
-        public DiskReader(DiskInfo diskInfo)
+        public DiskWriter(DiskInfo diskInfo)
         {
             _diskInfo = diskInfo;
             _volumeHandles = new Stack<SafeFileHandle>(_diskInfo.Drives?.Length ?? 0);
 
             OpenVolumes();
 
-            _deviceHandle = DiskUtils.GetDeviceHandle(diskInfo.DiskNumber);
-            _stream = new FileStream(_deviceHandle, FileAccess.Read, CommonSizes._128K, false);
+            _deviceHandle = DiskUtils.GetDeviceHandle(diskInfo.DiskNumber, false);
+            _stream = new FileStream(_deviceHandle, FileAccess.Write, CommonSizes._128K, false);
             _disposed = false;
             _closed = false;
-            _totalRead = 0;
+            _totalWrite = 0;
         }
 
         #region Methods
@@ -86,31 +85,26 @@ namespace Workshell.DiskImager
             _closed = true;
         }
 
-        public bool ReadSector(byte[] buffer)
+        public bool WriteSector(byte[] buffer)
         {
             if (buffer.Length < _diskInfo.SectorSize)
             {
                 return false;
             }
 
-            if (_totalRead >= _diskInfo.Size)
+            if (_totalWrite == _diskInfo.Size)
             {
                 return false;
             }
 
-            if ((_totalRead + buffer.Length) > _diskInfo.Size)
+            if ((_totalWrite + buffer.Length) > _diskInfo.Size)
             {
                 return false;
             }
 
-            var numRead = _stream.Read(buffer, 0, _diskInfo.SectorSize);
+            _stream.Write(buffer, 0, buffer.Length);
 
-            if (numRead != _diskInfo.SectorSize)
-            {
-                return false;
-            }
-
-            _totalRead += numRead;
+            _totalWrite += buffer.Length;
 
             return true;
         }

@@ -56,6 +56,7 @@
     <Compile Include="DiskInfo.cs" />
     <Compile Include="DiskReader.cs" />
     <Compile Include="DiskUtils.cs" />
+    <Compile Include="DiskWriter.cs" />
     <Compile Include="DriveDetector.cs" />
     <Compile Include="Extensions\Disposable.cs" />
     <Compile Include="Hashing\HashReader.cs" />
